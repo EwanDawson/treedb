@@ -1,0 +1,44 @@
+group 'com.symphonicsoft'
+version '1.0.0-SNAPSHOT'
+
+apply plugin: 'java'
+apply plugin: 'idea'
+
+sourceCompatibility = 1.8
+
+ext {
+    guiceVersion = '4.0'
+    datanucleusVersion = '5.0.3'
+    slf4jVersion = '1.7.12'
+    spockVersion = '1.0-groovy-2.4'
+    hikariVersion = '2.4.1'
+    groovyVersion = '2.4.4'
+    cglibVersion = '3.2.0'
+    objenesisVersion = '2.1'
+    guavaVersion = '18.0'
+    h2Version = '1.4.192'
+    javaslangVersion = '2.0.4'
+}
+
+repositories {
+    mavenLocal()
+    mavenCentral()
+}
+
+dependencies {
+    // Use FindBugs annotations for code quality and static analysis (see http://findbugs.sourceforge.net/manual/annotations.html)
+    compile "com.google.code.findbugs:annotations:3.0.1"
+
+    compile "org.codehaus.groovy:groovy-all:$groovyVersion"
+    compile "io.javaslang:javaslang:$javaslangVersion"
+    compile "javax.jdo:jdo-api:3.1"
+    compile "com.google.guava:guava:$guavaVersion"
+
+    // Use Spock testing framework (http://docs.spockframework.org)
+    // along with code-generation libraries for advanced mocking
+    testCompile ("org.spockframework:spock-core:$spockVersion") {
+        exclude module: 'groovy-all'
+    }
+    testRuntime "cglib:cglib-nodep:$cglibVersion"
+    testRuntime "org.objenesis:objenesis:$objenesisVersion"
+}
