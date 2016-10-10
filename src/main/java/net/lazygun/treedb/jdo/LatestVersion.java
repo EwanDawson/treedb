@@ -6,6 +6,7 @@ import net.lazygun.treedb.Id;
 import net.lazygun.treedb.Revision;
 import net.lazygun.treedb.Version;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.jdo.annotations.PersistenceCapable;
 import javax.jdo.annotations.PrimaryKey;
@@ -48,7 +49,7 @@ final class LatestVersion {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         LatestVersion that = (LatestVersion) o;

@@ -18,6 +18,7 @@ ext {
     guavaVersion = '18.0'
     h2Version = '1.4.192'
     javaslangVersion = '2.0.4'
+    queryDslVersion = '4.1.4'
 }
 
 repositories {
@@ -33,6 +34,8 @@ dependencies {
     compile "io.javaslang:javaslang:$javaslangVersion"
     compile "javax.jdo:jdo-api:3.1"
     compile "com.google.guava:guava:$guavaVersion"
+
+    //compile "com.querydsl:querydsl-jdo:$queryDslVersion"
 
     // Use Spock testing framework (http://docs.spockframework.org)
     // along with code-generation libraries for advanced mocking

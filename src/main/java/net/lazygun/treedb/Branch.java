@@ -15,8 +15,6 @@ public interface Branch {
 
     String parent();
 
-    void rename(String name);
-
     Stream<Revision> historyUpToBase();
 
     Stream<Revision> completeHistory();

@@ -1,7 +1,6 @@
 package net.lazygun.treedb;
 
 import javaslang.Function1;
-import javaslang.collection.Set;
 import javaslang.collection.Stream;
 
 /**
@@ -9,13 +8,17 @@ import javaslang.collection.Stream;
  */
 public interface TreeDb {
 
-    Set<Branch> branches();
+    Stream<Branch> branches();
 
     Branch createBranch(String name, Revision base);
 
     Branch getBranch(String name);
 
     void deleteBranch(Branch branch);
+
+    void renameBranch(Branch branch, String name);
+
+    void commitBranch(Branch branch, String committer, String message);
 
     <T extends Entity<T>> Id<T> nextId(Class<T> entityClass);
 

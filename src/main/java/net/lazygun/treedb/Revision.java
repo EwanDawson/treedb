@@ -1,6 +1,8 @@
 package net.lazygun.treedb;
 
-import javaslang.collection.Stack;
+import javaslang.collection.List;
+
+import java.time.Instant;
 
 /**
  * @author Ewan
@@ -11,13 +13,13 @@ public interface Revision {
 
     String committer();
 
-    String date();
+    Instant date();
 
     String message();
 
     Revision parent();
 
-    Stack<Change> changes();
+    List<Change> changes();
 
     String branch();
 

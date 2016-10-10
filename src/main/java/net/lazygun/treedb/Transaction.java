@@ -13,5 +13,5 @@ public interface Transaction<Q> {
 
     <T extends Entity<T>> T updateEntity(T entity);
 
-    Q query();
+    <T extends Entity<T>> Q query(Class<T> entityClass);
 }

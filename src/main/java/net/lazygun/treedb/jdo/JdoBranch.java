@@ -5,6 +5,7 @@ import net.lazygun.treedb.Branch;
 import net.lazygun.treedb.Revision;
 import javaslang.collection.Stream;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.jdo.annotations.PersistenceCapable;
 import javax.jdo.annotations.PrimaryKey;
@@ -20,16 +21,16 @@ final class JdoBranch implements Branch {
     @PrimaryKey
     private String name;
 
-    private Revision base;
+    private JdoRevision base;
 
-    private Revision tip;
+    private JdoRevision tip;
 
     private String parent;
 
-    JdoBranch(String name, Revision tip) {
+    JdoBranch(String name, JdoRevision tip) {
         this.name = name;
         this.tip = tip;
-        this.base = tip.parent();
+        this.base = (JdoRevision) tip.parent();
         this.parent = base.branch();
     }
 
@@ -53,9 +54,12 @@ final class JdoBranch implements Branch {
         return parent;
     }
 
-    @Override
-    public void rename(String name) {
+    void rename(String name) {
         this.name = name;
+    }
+
+    void commit(String committer, String message) {
+        tip = (JdoRevision) tip.commit(committer, message);
     }
 
     @Override
@@ -69,7 +73,7 @@ final class JdoBranch implements Branch {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         JdoBranch jdoBranch = (JdoBranch) o;
