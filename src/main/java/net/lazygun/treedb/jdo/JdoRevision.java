@@ -5,6 +5,7 @@ import net.lazygun.treedb.Branch;
 import net.lazygun.treedb.Change;
 import net.lazygun.treedb.Revision;
 
+import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.jdo.annotations.PersistenceCapable;
 import javax.jdo.annotations.PrimaryKey;
@@ -35,7 +36,7 @@ final class JdoRevision implements Revision {
 
     private boolean isCommitted = false;
 
-    private JdoRevision(JdoRevision parent, String branch) {
+    JdoRevision(@Nullable JdoRevision parent, String branch) {
         this.parent = parent;
         this.branch = branch;
     }

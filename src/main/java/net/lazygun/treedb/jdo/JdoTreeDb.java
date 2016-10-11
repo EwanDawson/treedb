@@ -1,12 +1,13 @@
 package net.lazygun.treedb.jdo;
 
-import net.lazygun.treedb.*;
-import net.lazygun.treedb.Transaction;
 import javaslang.Function1;
 import javaslang.collection.Stream;
+import net.lazygun.treedb.*;
 
 import javax.annotation.ParametersAreNonnullByDefault;
-import javax.jdo.*;
+import javax.jdo.PersistenceManager;
+import javax.jdo.PersistenceManagerFactory;
+import javax.jdo.Query;
 import java.util.List;
 
 /**
@@ -21,6 +22,16 @@ class JdoTreeDb implements TreeDb {
     JdoTreeDb(PersistenceManagerFactory pmf, Storage storage) {
         this.pmf = pmf;
         this.storage = storage;
+        init();
+    }
+
+    private void init() {
+        if (branches().isEmpty()) {
+            final JdoRevision root = new JdoRevision(null, "master");
+            final JdoRevision tip = (JdoRevision) root.commit("", "");
+            final JdoBranch master = new JdoBranch("master", tip);
+            noTxPm().deletePersistentAll(root, tip, master);
+        }
     }
 
     private PersistenceManager noTxPm() {
