@@ -1,7 +1,10 @@
-group 'com.symphonicsoft'
+import org.datanucleus.enhancer.DataNucleusEnhancer
+
+group 'net.lazygun'
 version '1.0.0-SNAPSHOT'
 
 apply plugin: 'java'
+apply plugin: 'groovy'
 apply plugin: 'idea'
 
 sourceCompatibility = 1.8
@@ -32,7 +35,7 @@ dependencies {
 
     compile "org.codehaus.groovy:groovy-all:$groovyVersion"
     compile "io.javaslang:javaslang:$javaslangVersion"
-    compile "javax.jdo:jdo-api:3.1"
+    compile "org.datanucleus:javax.jdo:3.2.0-m5"
     compile "com.google.guava:guava:$guavaVersion"
 
     //compile "com.querydsl:querydsl-jdo:$queryDslVersion"
@@ -44,4 +47,39 @@ dependencies {
     }
     testRuntime "cglib:cglib-nodep:$cglibVersion"
     testRuntime "org.objenesis:objenesis:$objenesisVersion"
+
+    testRuntime "org.datanucleus:datanucleus-core:5.0.3"
+    testCompile "org.datanucleus:datanucleus-api-jdo:5.0.3"
+    testRuntime "org.datanucleus:datanucleus-rdbms:5.0.3"
+    testRuntime "com.h2database:h2:1.4.192"
 }
+
+task copySourcesForEnhancement(type: Copy) {
+    from "build/classes/main"
+    from "src/test/resources"
+    include "**/*.class", "**/*.xml"
+    into "buildSrc/build/classes/main"
+}
+copySourcesForEnhancement.dependsOn(compileJava)
+
+task doEnhance << {
+    final DataNucleusEnhancer enhancer = new DataNucleusEnhancer("JDO", null)
+    enhancer.systemOut = true
+    enhancer.verbose = true
+    enhancer.addPersistenceUnit("Test")
+    println (enhancer.properties as Map)
+    final enhanced = enhancer.enhance()
+    println "Enhanced $enhanced classes"
+}
+doEnhance.dependsOn(copySourcesForEnhancement)
+
+task copyEnhancedSources(type: Copy) {
+    from "buildSrc/build/classes/main"
+    include "**/*.class"
+    into "build/classes/main"
+}
+copyEnhancedSources.dependsOn(doEnhance)
+
+task enhance(dependsOn: copyEnhancedSources)
+
+testClasses.dependsOn('enhance')

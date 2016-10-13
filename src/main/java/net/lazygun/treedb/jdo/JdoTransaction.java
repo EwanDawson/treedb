@@ -1,74 +1,87 @@
 package net.lazygun.treedb.jdo;
 
+import javaslang.Function1;
 import net.lazygun.treedb.*;
 import net.lazygun.treedb.Transaction;
-import javaslang.Function1;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.jdo.*;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 
 /**
  * @author Ewan
  */
 @ParametersAreNonnullByDefault
-final class JdoTransaction implements Transaction<Query> {
+class JdoTransaction implements Transaction<Query> {
 
-    private final PersistenceManager pm;
-    private final Revision revision;
-    private final Storage storage;
-    private final boolean isReadOnly;
+    private final PersistenceManagerFactory pmf;
+    private final ThreadLocal<Revision> revision = new ThreadLocal<>();
+    private final JdoStorage storage;
 
-    JdoTransaction(PersistenceManager pm, Revision revision, Storage storage) {
-        this.pm = pm;
-        this.revision = revision;
+    JdoTransaction(PersistenceManagerFactory persistenceManagerFactory, JdoStorage storage) {
+        this.pmf = persistenceManagerFactory;
         this.storage = storage;
-        this.isReadOnly = revision.isCommitted();
+    }
+
+    void setRevision(Revision revision) {
+        this.revision.set(revision);
+    }
+
+    Revision getRevision() {
+        return this.revision.get();
+    }
+
+    private boolean isReadOnly() {
+        return getRevision().isCommitted();
     }
 
     @Override
     public <T extends Entity<T>> T getEntity(Id<T> id) {
-        return storage.getEntity(revision, id);
+        return storage.getEntity(revision.get(), id);
     }
 
     @Override
     public <T extends Entity<T>> T addEntity(T entity) {
-        if (isReadOnly) throw new CommittedRevisionIsUnmodifiableException(revision);
-        storage.writeEntity(revision, entity);
+        if (isReadOnly()) throw new CommittedRevisionIsUnmodifiableException(revision.get());
+        storage.writeEntity(revision.get(), entity);
         return entity;
     }
 
     @Override
     public <T extends Entity<T>> void removeEntity(T entity) {
-        if (isReadOnly) throw new CommittedRevisionIsUnmodifiableException(revision);
-        storage.dropEntity(revision, entity);
+        if (isReadOnly()) throw new CommittedRevisionIsUnmodifiableException(revision.get());
+        storage.dropEntity(revision.get(), entity);
     }
 
     @Override
     public <T extends Entity<T>> T updateEntity(T entity) {
-        if (isReadOnly) throw new CommittedRevisionIsUnmodifiableException(revision);
-        storage.writeEntity(revision, entity);
+        if (isReadOnly()) throw new CommittedRevisionIsUnmodifiableException(revision.get());
+        storage.writeEntity(revision.get(), entity);
         return entity;
     }
 
     @Override
     public <T extends Entity<T>> Query query(Class<T> entityClass) {
-        return new LatestVersionQuery<>(revision, pm, entityClass);
+        return new LatestVersionQuery<>(revision.get(), storage, entityClass);
     }
 
     <T> T execute(Function1<Transaction, T> operations) {
-        final javax.jdo.Transaction transaction = pm.currentTransaction();
-        try {
-            transaction.begin();
-            final T result = operations.apply(this);
-            transaction.commit();
-            return result;
-        } catch (Exception e) {
-            throw new TransactionFailedException(e);
-        } finally {
-            if (transaction.isActive()) {
-                transaction.rollback();
+        try (PersistenceManager pm = pmf.getPersistenceManager()) {
+            final javax.jdo.Transaction transaction = pm.currentTransaction();
+            try {
+                storage.setPersistenceManager(pm);
+                transaction.begin();
+                final T result = operations.apply(this);
+                transaction.commit();
+                return result;
+            } catch (Exception e) {
+                throw new TransactionFailedException(e);
+            } finally {
+                if (transaction.isActive()) {
+                    transaction.rollback();
+                }
             }
         }
     }
@@ -80,7 +93,8 @@ final class JdoTransaction implements Transaction<Query> {
 
         private final Query q;
 
-        private LatestVersionQuery(Revision revision, PersistenceManager pm, Class<T> entityClass) {
+        private LatestVersionQuery(Revision revision, JdoStorage storage, Class<T> entityClass) {
+            final PersistenceManager pm = storage.getPersistenceManager();
             this.q = pm.newQuery(entityClass);
             setFilter("true");
             declareVariables("");
@@ -330,6 +344,161 @@ final class JdoTransaction implements Transaction<Query> {
         @Override
         public Boolean getSerializeRead() {
             return q.getSerializeRead();
+        }
+
+        @Override
+        public Query saveAsNamedQuery(String name) {
+            return q.saveAsNamedQuery(name);
+        }
+
+        @Override
+        public Query filter(String filter) {
+            return q.filter(filter);
+        }
+
+        @Override
+        public Query orderBy(String ordering) {
+            return q.orderBy(ordering);
+        }
+
+        @Override
+        public Query groupBy(String group) {
+            return q.groupBy(group);
+        }
+
+        @Override
+        public Query result(String result) {
+            return q.result(result);
+        }
+
+        @Override
+        public Query range(long fromIncl, long toExcl) {
+            return q.range(fromIncl, toExcl);
+        }
+
+        @Override
+        public Query range(String fromInclToExcl) {
+            return q.range(fromInclToExcl);
+        }
+
+        @Override
+        public Query subquery(Query sub, String variableDeclaration, String candidateCollectionExpression) {
+            return q.subquery(sub, variableDeclaration, candidateCollectionExpression);
+        }
+
+        @Override
+        public Query subquery(Query sub, String variableDeclaration, String candidateCollectionExpression,
+                              String parameter) {
+            return q.subquery(sub, variableDeclaration, candidateCollectionExpression, parameter);
+        }
+
+        @Override
+        public Query subquery(Query sub, String variableDeclaration, String candidateCollectionExpression,
+                              String... parameters) {
+            return q.subquery(sub, variableDeclaration, candidateCollectionExpression, parameters);
+        }
+
+        @Override
+        public Query subquery(Query sub, String variableDeclaration, String candidateCollectionExpression,
+                              Map parameters) {
+            return q.subquery(sub, variableDeclaration, candidateCollectionExpression, parameters);
+        }
+
+        @Override
+        public Query imports(String imports) {
+            return q.imports(imports);
+        }
+
+        @Override
+        public Query parameters(String parameters) {
+            return q.parameters(parameters);
+        }
+
+        @Override
+        public Query variables(String variables) {
+            return q.variables(variables);
+        }
+
+        @Override
+        public Query datastoreReadTimeoutMillis(Integer interval) {
+            return q.datastoreReadTimeoutMillis(interval);
+        }
+
+        @Override
+        public Query datastoreWriteTimeoutMillis(Integer interval) {
+            return q.datastoreWriteTimeoutMillis(interval);
+        }
+
+        @Override
+        public Query serializeRead(Boolean serialize) {
+            return q.serializeRead(serialize);
+        }
+
+        @Override
+        public Query unmodifiable() {
+            return q.unmodifiable();
+        }
+
+        @Override
+        public Query ignoreCache(boolean flag) {
+            return q.ignoreCache(flag);
+        }
+
+        @Override
+        public Query extension(String key, Object value) {
+            return q.extension(key, value);
+        }
+
+        @Override
+        public Query extensions(Map values) {
+            return q.extensions(values);
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public Query setNamedParameters(Map namedParamMap) {
+            return q.setNamedParameters(namedParamMap);
+        }
+
+        @Override
+        public Query setParameters(Object... paramValues) {
+            return q.setParameters(paramValues);
+        }
+
+        @Override
+        public List executeList() {
+            return q.executeList();
+        }
+
+        @Override
+        public Object executeUnique() {
+            return q.executeUnique();
+        }
+
+        @Override
+        public List executeResultList(Class resultCls) {
+            return q.executeResultList(resultCls);
+        }
+
+        @Override
+        public Object executeResultUnique(Class resultCls) {
+            return q.executeResultUnique(resultCls);
+        }
+
+        @SuppressWarnings("unchecked")
+        @Override
+        public List<Object> executeResultList() {
+            return q.executeResultList();
+        }
+
+        @Override
+        public Object executeResultUnique() {
+            return q.executeResultUnique();
+        }
+
+        @Override
+        public void close() throws Exception {
+            q.close();
         }
     }
 }

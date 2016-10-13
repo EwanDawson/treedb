@@ -17,11 +17,15 @@ import java.util.List;
 class JdoTreeDb implements TreeDb {
 
     private final PersistenceManagerFactory pmf;
-    private final Storage storage;
+    private final JdoTransaction transaction;
 
-    JdoTreeDb(PersistenceManagerFactory pmf, Storage storage) {
-        this.pmf = pmf;
-        this.storage = storage;
+    JdoTreeDb(PersistenceManagerFactory persistenceManagerFactory) {
+        this(persistenceManagerFactory, new JdoTransaction(persistenceManagerFactory, new JdoStorage()));
+    }
+
+    private JdoTreeDb(PersistenceManagerFactory persistenceManagerFactory, JdoTransaction transaction) {
+        this.pmf = persistenceManagerFactory;
+        this.transaction = transaction;
         init();
     }
 
@@ -30,7 +34,7 @@ class JdoTreeDb implements TreeDb {
             final JdoRevision root = new JdoRevision(null, "master");
             final JdoRevision tip = (JdoRevision) root.commit("", "");
             final JdoBranch master = new JdoBranch("master", tip);
-            noTxPm().deletePersistentAll(root, tip, master);
+            noTxPm().makePersistentAll(root, tip, master);
         }
     }
 
@@ -43,7 +47,7 @@ class JdoTreeDb implements TreeDb {
     @Override
     public Stream<Branch> branches() {
         //noinspection unchecked
-        final List<Branch> branches = (List<Branch>) noTxPm().newQuery(Branch.class).execute();
+        final List<Branch> branches = (List<Branch>) noTxPm().newQuery(JdoBranch.class).execute();
         return Stream.ofAll(branches);
     }
 
@@ -90,12 +94,8 @@ class JdoTreeDb implements TreeDb {
 
     @Override
     public <T> T transaction(Revision revision, Function1<Transaction, T> operations) {
-        final PersistenceManager pm = pmf.getPersistenceManager();
-        try {
-            return new JdoTransaction(pm, revision, storage).execute(operations);
-        } finally {
-            pm.close();
-        }
+        transaction.setRevision(revision);
+        return transaction.execute(operations);
     }
 
     @Override

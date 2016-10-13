@@ -1,7 +1,7 @@
 package net.lazygun.treedb.jdo;
 
-import net.lazygun.treedb.*;
 import javaslang.control.Option;
+import net.lazygun.treedb.*;
 
 import javax.annotation.ParametersAreNonnullByDefault;
 import javax.jdo.PersistenceManager;
@@ -17,10 +17,14 @@ import static javaslang.Patterns.Some;
 @ParametersAreNonnullByDefault
 class JdoStorage implements Storage {
 
-    private final PersistenceManager pm;
+    private final ThreadLocal<PersistenceManager> pm = new ThreadLocal<>();
 
-    JdoStorage(PersistenceManager pm) {
-        this.pm = pm;
+    void setPersistenceManager(PersistenceManager persistenceManager) {
+        pm.set(persistenceManager);
+    }
+
+    PersistenceManager getPersistenceManager() {
+        return pm.get();
     }
 
     @SuppressWarnings("unchecked")
@@ -32,14 +36,14 @@ class JdoStorage implements Storage {
     }
 
     private <T extends Entity<T>> Option<LatestVersion> getLatestVersion(Revision revision, Id<T> id) {
-        final Query query = pm.newQuery(LatestVersion.class);
+        final Query query = pm.get().newQuery(LatestVersion.class);
         query.setFilter("revision == :revision && id == :id");
         query.setUnique(true);
         return Option.of((LatestVersion) query.execute(revision.id(), id));
     }
 
     private Object getLatestVersionOfEntity(LatestVersion latestVersion) {
-        final Query query = pm.newQuery(latestVersion.id.type());
+        final Query query = pm.get().newQuery(latestVersion.id.type());
         query.setFilter("id == :id && version == :version");
         query.setUnique(true);
         return query.execute(latestVersion.id, latestVersion.version);
@@ -59,12 +63,12 @@ class JdoStorage implements Storage {
     private <T extends Entity<T>> void updateLatestVersion(Revision revision, Entity<T> entity) {
         Match(getLatestVersion(revision, entity.id())).of(
             Case(Some($()), latestVersion -> run(() -> latestVersion.update(entity.version()))),
-            Case(None(), run(() -> pm.makePersistent(LatestVersion.create(revision, entity))))
+            Case(None(), run(() -> pm.get().makePersistent(LatestVersion.create(revision, entity))))
         );
     }
 
     private void writeUpdatedEntity(Entity entity) {
-        pm.makePersistent(entity);
+        pm.get().makePersistent(entity);
     }
 
     @Override
@@ -74,7 +78,7 @@ class JdoStorage implements Storage {
 
     private <T extends Entity<T>> void removeLatestVersion(Revision revision, Entity<T> entity) {
         final Option<LatestVersion> latestVersion = getLatestVersion(revision, entity.id());
-        if (latestVersion.isDefined()) pm.deletePersistent(latestVersion);
+        if (latestVersion.isDefined()) pm.get().deletePersistent(latestVersion);
         else
             throw new IllegalStateException("No latest version exists for entity " + entity + " in revision " + revision);
     }
