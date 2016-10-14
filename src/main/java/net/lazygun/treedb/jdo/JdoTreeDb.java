@@ -9,23 +9,32 @@ import javax.jdo.PersistenceManager;
 import javax.jdo.PersistenceManagerFactory;
 import javax.jdo.Query;
 import java.util.List;
+import java.util.function.Consumer;
 
 /**
  * @author Ewan
  */
 @ParametersAreNonnullByDefault
-class JdoTreeDb implements TreeDb {
+class JdoTreeDb implements TreeDb, AutoCloseable {
 
     private final PersistenceManagerFactory pmf;
+    private final PersistenceManager pm;
     private final JdoTransaction transaction;
 
     JdoTreeDb(PersistenceManagerFactory persistenceManagerFactory) {
         this(persistenceManagerFactory, new JdoTransaction(persistenceManagerFactory, new JdoStorage()));
     }
 
+    private PersistenceManager initPersistenceManager() {
+        final PersistenceManager pm = pmf.getPersistenceManager();
+        pm.setProperty("datanucleus.nontx.atomic", "true");
+        return pm;
+    }
+
     private JdoTreeDb(PersistenceManagerFactory persistenceManagerFactory, JdoTransaction transaction) {
         this.pmf = persistenceManagerFactory;
         this.transaction = transaction;
+        pm = initPersistenceManager();
         init();
     }
 
@@ -34,42 +43,67 @@ class JdoTreeDb implements TreeDb {
             final JdoRevision root = new JdoRevision(null, "master");
             final JdoRevision tip = (JdoRevision) root.commit("", "");
             final JdoBranch master = new JdoBranch("master", tip);
-            noTxPm().makePersistentAll(root, tip, master);
+            pm.makePersistentAll(root, tip, master);
         }
     }
 
-    private PersistenceManager noTxPm() {
-        final PersistenceManager pm = pmf.getPersistenceManager();
-        pm.setProperty("datanucleus.nontx.atomic", "true");
-        return pm;
+    private <T> T withPM(Function1<PersistenceManager, T> operations) {
+        try (final PersistenceManager pm = pmf.getPersistenceManager()) {
+            final javax.jdo.Transaction txn = pm.currentTransaction();
+            try {
+                txn.begin();
+                final T result = operations.apply(pm);
+                txn.commit();
+                return result;
+            } finally {
+                if (txn.isActive()) {
+                    txn.rollback();
+                }
+            }
+        }
+    }
+
+    private void withPM(Consumer<PersistenceManager> operations) {
+        try (final PersistenceManager pm = pmf.getPersistenceManager()) {
+            final javax.jdo.Transaction txn = pm.currentTransaction();
+            try {
+                txn.begin();
+                operations.accept(pm);
+                txn.commit();
+            } finally {
+                if (txn.isActive()) {
+                    txn.rollback();
+                }
+            }
+        }
     }
 
     @Override
     public Stream<Branch> branches() {
         //noinspection unchecked
-        final List<Branch> branches = (List<Branch>) noTxPm().newQuery(JdoBranch.class).execute();
+        final List<JdoBranch> branches = (List<JdoBranch>) pm.newQuery(JdoBranch.class).execute();
         return Stream.ofAll(branches);
     }
 
     @Override
     public Branch createBranch(String name, Revision base) {
-        final Branch branch = ((JdoRevision) base).fork(name);
-        return noTxPm().makePersistent(branch);
+        final JdoBranch branch = ((JdoRevision) base).fork(name);
+        return pm.makePersistent(branch);
     }
 
     @Override
     public Branch getBranch(String name) {
-        final Query query = noTxPm().newQuery(Branch.class);
+        final Query query = pm.newQuery(JdoBranch.class);
         query.setFilter("name == :name");
         query.setUnique(true);
-        final Branch branch = (Branch) query.execute(name);
+        final JdoBranch branch = (JdoBranch) query.execute(name);
         if (branch == null) throw new BranchNotFoundException(name);
         return branch;
     }
 
     @Override
     public void deleteBranch(Branch branch) {
-        noTxPm().deletePersistent(branch);
+        pm.deletePersistent(branch);
     }
 
     @Override
@@ -111,5 +145,11 @@ class JdoTreeDb implements TreeDb {
     @Override
     public Branch merge(Branch from, Branch to) {
         throw new UnsupportedOperationException("Not implemented");
+    }
+
+    @Override
+    public void close() throws Exception {
+        pm.close();
+        pmf.close();
     }
 }

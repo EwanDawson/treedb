@@ -1,24 +1,29 @@
 package net.lazygun.treedb.jdo;
 
 import com.google.common.base.MoreObjects;
+import javaslang.collection.Stream;
 import net.lazygun.treedb.Branch;
 import net.lazygun.treedb.Revision;
-import javaslang.collection.Stream;
 
 import javax.annotation.Nullable;
 import javax.annotation.ParametersAreNonnullByDefault;
-import javax.jdo.annotations.PersistenceCapable;
-import javax.jdo.annotations.PrimaryKey;
+import javax.jdo.JDOHelper;
+import javax.jdo.annotations.*;
 import java.util.Objects;
+import java.util.UUID;
 
 /**
  * @author Ewan
  */
 @ParametersAreNonnullByDefault
 @PersistenceCapable
+@Version(strategy = VersionStrategy.VERSION_NUMBER, column = "version")
 final class JdoBranch implements Branch {
 
     @PrimaryKey
+    private String id = UUID.randomUUID().toString();
+
+    @Unique
     private String name;
 
     private JdoRevision base;
@@ -30,7 +35,7 @@ final class JdoBranch implements Branch {
     JdoBranch(String name, JdoRevision tip) {
         this.name = name;
         this.tip = tip;
-        this.base = (JdoRevision) tip.parent();
+        this.base = tip.parent();
         this.parent = base.branch();
     }
 
@@ -62,6 +67,10 @@ final class JdoBranch implements Branch {
         tip = (JdoRevision) tip.commit(committer, message);
     }
 
+    long version() {
+        return (long) JDOHelper.getVersion(this);
+    }
+
     @Override
     public Stream<Revision> historyUpToBase() {
         return completeHistory().takeUntil(revision -> revision.equals(base));
@@ -77,12 +86,12 @@ final class JdoBranch implements Branch {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         JdoBranch jdoBranch = (JdoBranch) o;
-        return Objects.equals(name, jdoBranch.name);
+        return Objects.equals(id, jdoBranch.id);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name);
+        return Objects.hash(id);
     }
 
     @Override

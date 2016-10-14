@@ -1,7 +1,6 @@
 package net.lazygun.treedb.jdo;
 
 import javaslang.collection.List;
-import net.lazygun.treedb.Branch;
 import net.lazygun.treedb.Change;
 import net.lazygun.treedb.Revision;
 
@@ -62,7 +61,7 @@ final class JdoRevision implements Revision {
     }
 
     @Override
-    public Revision parent() {
+    public JdoRevision parent() {
         return parent;
     }
 
@@ -93,7 +92,7 @@ final class JdoRevision implements Revision {
         }
     }
 
-    Branch fork(String branchName) {
+    JdoBranch fork(String branchName) {
         final JdoRevision tip = new JdoRevision(this, branchName);
         return new JdoBranch(branchName, tip);
     }

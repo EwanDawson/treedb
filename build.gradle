@@ -67,7 +67,7 @@ task datanucleusEnhance {
         // run the DataNucleus Enhancer as an Ant task
         ant.datanucleusenhancer(
             classpath: sourceSets.test.runtimeClasspath.asPath,
-            //verbose: true,
+            alwaysDetachable: true,
             api: "JDO",
             persistenceUnit: "Test"
         )

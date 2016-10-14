@@ -9,7 +9,7 @@
     <class>net.lazygun.treedb.jdo.JdoRevision</class>
     <exclude-unlisted-classes/>
     <properties>
-      <property name="javax.jdo.option.ConnectionURL" value="jdbc:h2:mem:"/>
+      <property name="javax.jdo.option.ConnectionURL" value="jdbc:h2:mem:test;DB_CLOSE_DELAY=-1"/>
       <property name="javax.jdo.option.ConnectionDriverName" value="org.h2.Driver"/>
       <property name="datanucleus.schema.autoCreateAll" value="true"/>
       <property name="datanucleus.schema.validateTables" value="false"/>
