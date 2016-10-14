@@ -1,5 +1,3 @@
-import org.datanucleus.enhancer.DataNucleusEnhancer
-
 group 'net.lazygun'
 version '1.0.0-SNAPSHOT'
 
@@ -54,32 +52,27 @@ dependencies {
     testRuntime "com.h2database:h2:1.4.192"
 }
 
-task copySourcesForEnhancement(type: Copy) {
-    from "build/classes/main"
-    from "src/test/resources"
-    include "**/*.class", "**/*.xml"
-    into "buildSrc/build/classes/main"
+task datanucleusEnhance {
+    description "Enhance JDO model classes using DataNucleus Enhancer"
+    dependsOn compileJava
+
+    doLast {
+        // define Ant task for DataNucleus Enhancer
+        ant.taskdef(
+            name : 'datanucleusenhancer',
+            classpath : sourceSets.test.runtimeClasspath.asPath,
+            classname : 'org.datanucleus.enhancer.EnhancerTask'
+        )
+
+        // run the DataNucleus Enhancer as an Ant task
+        ant.datanucleusenhancer(
+            classpath: sourceSets.test.runtimeClasspath.asPath,
+            //verbose: true,
+            api: "JDO",
+            persistenceUnit: "Test"
+        )
+    }
 }
-copySourcesForEnhancement.dependsOn(compileJava)
-
-task doEnhance << {
-    final DataNucleusEnhancer enhancer = new DataNucleusEnhancer("JDO", null)
-    enhancer.systemOut = true
-    enhancer.verbose = true
-    enhancer.addPersistenceUnit("Test")
-    println (enhancer.properties as Map)
-    final enhanced = enhancer.enhance()
-    println "Enhanced $enhanced classes"
-}
-doEnhance.dependsOn(copySourcesForEnhancement)
-
-task copyEnhancedSources(type: Copy) {
-    from "buildSrc/build/classes/main"
-    include "**/*.class"
-    into "build/classes/main"
-}
-copyEnhancedSources.dependsOn(doEnhance)
-
-task enhance(dependsOn: copyEnhancedSources)
-
-testClasses.dependsOn('enhance')
+datanucleusEnhance.mustRunAfter(classes, testClasses)
+test.dependsOn datanucleusEnhance
+jar.dependsOn datanucleusEnhance

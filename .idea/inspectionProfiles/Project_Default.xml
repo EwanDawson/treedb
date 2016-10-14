@@ -4,6 +4,9 @@
     <inspection_tool class="GrUnresolvedAccess" enabled="true" level="WEAK WARNING" enabled_by_default="true">
       <scope name="Gradle Build Scripts" level="WEAK WARNING" enabled="false" />
     </inspection_tool>
+    <inspection_tool class="GroovyAssignabilityCheck" enabled="true" level="WARNING" enabled_by_default="true">
+      <scope name="Gradle Build Scripts" level="WARNING" enabled="false" />
+    </inspection_tool>
     <inspection_tool class="GroovyUnusedAssignment" enabled="true" level="WARNING" enabled_by_default="true">
       <scope name="Gradle Build Scripts" level="WARNING" enabled="false" />
     </inspection_tool>
